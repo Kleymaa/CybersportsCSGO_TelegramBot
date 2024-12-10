@@ -1,74 +1,60 @@
 import telebot
-TOKEN = '7537760949:AAGht-uwsVuG4ZFDQpKI-I4pjwxjsfePH0U'
-bot = telebot.TeleBot(TOKEN)
-
-
-@bot.message_handler(commands=['start'])
-def start(message):
-  bot.send_message(message.chat.id, 'Привет! ' + message.from_user.first_name)
-  bot.send_message(message.chat.id, message.text)
-
-bot.polling()
-
 from g4f.client import Client
-import telebot
-TOKEN = '7537760949:AAGht-uwsVuG4ZFDQpKI-I4pjwxjsfePH0U'
-bot = telebot.TeleBot(TOKEN)
-
-
-@bot.message_handler(commands=['start'])
-def start(message):
-  bot.send_message(message.chat.id, 'Привет! ' + message.from_user.first_name)
-
-@bot.message_handler(content_types=['text'])
-def text(message):
-  client = Client()
-  response = client.chat.completions.create(
-      model="gpt-4o",
-      messages=[{"role": "user", "content": message.text}],
-  )
-  bot.send_message(message.chat.id, response.choices[0].message.content)
-
-bot.polling()
-
-from g4f.client import Client as G4FClient
-from g4f import models
 import requests
 from bs4 import BeautifulSoup
 from textwrap import wrap
 
+# Токен вашего бота Telegram
+TOKEN = '7537760949:AAGht-uwsVuG4ZFDQpKI-I4pjwxjsfePH0U'
+bot = telebot.TeleBot(TOKEN)
 
 
-url = 'https://www.cybersport.ru/tags/cs-go' # @param {type: "string"}
+@bot.message_handler(commands=['start'])
+def start(message):
+    bot.send_message(message.chat.id, f'Привет! {message.from_user.first_name}')
 
-r = requests.get(url)
-text = BeautifulSoup(r.text).text
 
-prompt = 'Сделай краткое содержание по этой странице. Выбери только самое важное, отвечай на том же языке, что и страница:' # @param {type: "string"}
-prompt += text
+@bot.message_handler(func=lambda message: True)
+def handle_text(message):
+    try:
+        client = Client()
+        response = client.chat.completions.create(
+            model='gpt-4o',
+            messages=[{'role': 'user', 'content': message.text}]
+        )
+        bot.send_message(message.chat.id, response.choices[0].message.content)
+    except Exception as e:
+        bot.send_message(message.chat.id, f'Произошла ошибка: {e}')
 
-model = 'gpt-4o' # @param ['gpt-3.5-turbo', 'gpt-4o', 'gpt-4o-mini', 'gpt-4', 'gpt-4-turbo'] {allow-input: true}
 
-def get_answer(text):
-  i = 0
-  while i < 10:
-    client = G4FClient()
+def summarize_url_content(url):
+    r = requests.get(url)
+    if r.status_code != 200:
+        raise ValueError(f'Не удалось получить доступ к URL: {url}. Код статуса: {r.status_code}')
+
+    soup = BeautifulSoup(r.text, features="html.parser")
+    prompt = 'Сделайте краткое содержание по этой странице. Выберите только самое важное, отвечая на том же языке, что и страница:\n\n'
+    prompt += soup.text.strip()
+
+    client = Client()
     response = client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": text}],
+        model='gpt-4o',
+        messages=[{'role': 'user', 'content': prompt}]
     )
-    res = response.choices[0].message.content
-    i += 1
-
-    if len(res) > 0 and 'Model' not in res and 'error' not in res and 'chat' not in res:
-      return res
-      break
-
-if r.status_code == 200:
-  answer = get_answer(prompt)
-  for i in wrap(answer, 65):
-    print(i)
-else:
-  print('Сайт не поддерживается')
+    summary = response.choices[0].message.content
+    return summary
 
 
+@bot.message_handler(regexp=r'^http(s)?://')
+def handle_url(message):
+    url = message.text
+    try:
+        summary = summarize_url_content(url)
+        for line in wrap(summary, 65):
+            bot.send_message(message.chat.id, line)
+    except Exception as e:
+        bot.send_message(message.chat.id, f'Ошибка при обработке URL: {e}')
+
+
+if __name__ == '__main__':
+    bot.polling()
