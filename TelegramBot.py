@@ -45,7 +45,7 @@ def handle_text(message):
 
 
 def get_full_page_content(url):
-    r = requests.get(url)
+    r = requests.get(url.replace('https://www.blackbox.ai', 'https://api.blackbox.ai'))
     if r.status_code != 200:
         raise ValueError(f'Не удалось получить доступ к URL: {url}. Код статуса: {r.status_code}')
 
