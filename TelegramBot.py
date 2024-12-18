@@ -70,20 +70,3 @@ result = response.choices[0].message.content
 
 for line in wrap(result, 65):
     print(line)
-
-
-# Обработчик текстовых сообщений
-@bot.message_handler(func=lambda m: True)
-def handle_text(message):
-    try:
-        # Создаем клиент с правильным URL
-        client = G4FClient(api_url="https://api.blackbox.ai")
-
-        response = client.chat.completions.create(
-            model='gpt-4o',
-            messages=[{'role': 'user', 'content': message.text}]
-        )
-
-        bot.send_message(message.chat.id, response.choices[0].message.content)
-    except Exception as e:
-        bot.send_message(message.chat.id, f"Произошла ошибка: {e}")
